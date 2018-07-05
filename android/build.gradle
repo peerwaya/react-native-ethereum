@@ -1,0 +1,48 @@
+
+buildscript {
+    repositories {
+	google()
+        jcenter()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.1.0'
+    }
+}
+
+apply plugin: 'com.android.library'
+
+android {
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    compileSdkVersion 27
+    buildToolsVersion "27.0.0"
+
+    defaultConfig {
+        minSdkVersion 16
+        targetSdkVersion 22
+        versionCode 1
+        versionName "1.0"
+    }
+    lintOptions {
+        abortOnError false
+    }
+}
+
+repositories {
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.facebook.react:react-native:+'
+    implementation "com.madgag.spongycastle:core:1.58.0.0"
+    implementation "com.madgag.spongycastle:prov:1.58.0.0"
+    implementation "io.github.novacrypto:BIP39:0.1.9"
+    implementation "io.github.novacrypto:BIP32:0.0.9"
+    implementation "org.web3j:core:3.3.1-android"
+}
