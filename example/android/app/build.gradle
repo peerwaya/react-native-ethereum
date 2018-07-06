@@ -34,7 +34,7 @@ android {
     buildToolsVersion "27.0.0"
 
     defaultConfig {
-        applicationId "io.getty.rnethereum-test"
+        applicationId "io.getty.rnethereum_example"
         targetSdkVersion 25
         minSdkVersion 16
         versionCode 1

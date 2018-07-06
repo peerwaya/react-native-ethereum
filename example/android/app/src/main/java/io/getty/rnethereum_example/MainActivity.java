@@ -1,4 +1,4 @@
-package io.getty.rnethereum-example;
+package io.getty.rnethereum_example;
 
 import com.facebook.react.ReactActivity;
 
