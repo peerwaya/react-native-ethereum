@@ -106,6 +106,47 @@ RCT_REMAP_METHOD(generateKeypair,
     }
 }
 
+RCT_REMAP_METHOD(decodeTransaction,
+                 encodedTransaction:(NSString *)encodedTransaction
+                 decodeTransactionWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+    @try
+    {
+        //Decode hex encoded string to data
+        NSData *transactionData = [NSData dataWithHexString: encodedTransaction];
+        
+        //Attempt to parse transaction from data
+        Transaction *transaction = [Transaction transactionWithData: transactionData];
+        if(!transaction)
+        {
+            //Problem decoding/parsing transaction, reject and return
+            reject(@"Failed to decode transaction", @"Decoder/parser error", nil);
+            return;
+        }
+        
+        //Create decoded transaction dictionary
+        NSDictionary *returnDecodedTransaction =
+        @{
+            @"nonce": @(transaction.nonce),
+            @"gasPrice": transaction.gasPrice.decimalString,
+            @"gasLimit": transaction.gasLimit.decimalString,
+            @"toAddress": transaction.toAddress.checksumAddress,
+            @"value": transaction.value.decimalString
+        };
+        
+        //Return result
+        resolve(returnDecodedTransaction);
+    }
+    @catch(NSException *e)
+    {
+        //Exception, reject
+        NSDictionary *userInfo = @{ @"name": e.name, @"reason": e.reason };
+        NSError *error = [NSError errorWithDomain: @"io.getty.rnethereum" code: 0 userInfo: userInfo];
+        reject(@"Failed to decode transaction", @"Native exception thrown", error);
+    }
+}
+
 RCT_REMAP_METHOD(signTransaction,
                  ownerPrivateKey: (NSString *) ownerPrivateKey
                  encodedTransaction:(NSString *)encodedTransaction
@@ -117,7 +158,7 @@ RCT_REMAP_METHOD(signTransaction,
         //Create ethereum account for private key
         NSData *privateKeyBytes = [NSData dataWithHexString: ownerPrivateKey];
         Account *account = [Account accountWithPrivateKey: privateKeyBytes];
-
+        
         //Decode hex encoded string to data
         NSData *transactionData = [NSData dataWithHexString: encodedTransaction];
         

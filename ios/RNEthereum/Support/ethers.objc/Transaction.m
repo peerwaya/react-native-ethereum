@@ -112,8 +112,6 @@ static NSData *NullData = nil;
     NSError *error = nil;
     NSArray *raw = (NSArray*)[RLPSerialization objectWithData:transactionData error:&error];
     if (error || ![raw isKindOfClass:[NSArray class]]) { return nil; }
-    
-    if (raw.count != 6) { return nil; }
 
     // Check that every item is data (and not a nested array)
     for (NSData *item in raw) {

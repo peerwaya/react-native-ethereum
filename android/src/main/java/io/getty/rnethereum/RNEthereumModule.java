@@ -147,6 +147,44 @@ public class RNEthereumModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
+  public void decodeTransaction(final String encodedTransaction, final Promise promise)
+  {
+    new Thread(new Runnable()
+    {
+      public void run()
+      {
+        try
+        {
+          //Parse from hex encoded transaction
+          RawTransaction transaction = TransactionDecoder.decode(encodedTransaction);
+          if(transaction == null)
+          {
+            //Problem creating transaction, reject and return
+            promise.reject("Failed to decode transaction", "Decoder/parser error", null);
+            return;
+          }
+
+          //Create decoded transaction map
+          WritableMap returnDecodedTransaction = Arguments.createMap();
+          returnDecodedTransaction.putInt("nonce", transaction.getNonce().intValue());
+          returnDecodedTransaction.putString("gasPrice", transaction.getGasPrice().toString());
+          returnDecodedTransaction.putString("gasLimit", transaction.getGasLimit().toString());
+          returnDecodedTransaction.putString("toAddress", transaction.getTo());
+          returnDecodedTransaction.putString("value", transaction.getValue().toString());
+
+          //Return result
+          promise.resolve(returnDecodedTransaction);
+        }
+        catch(Exception e)
+        {
+          //Exception, reject
+          promise.reject("Failed to decode transaction", "Native exception thrown", e);
+        }
+      }
+    }).start();
+  }
+
+  @ReactMethod
   public void signTransaction(final String ownerPrivateKey, final String encodedTransaction, final Promise promise)
   {
     new Thread(new Runnable()
