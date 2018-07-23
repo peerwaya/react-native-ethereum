@@ -213,7 +213,7 @@ public class RNEthereumModule extends ReactContextBaseJavaModule {
           BigInteger gasLimit = BigInteger.valueOf(21000L);
 
           //Get nonce (transaction count)
-          EthGetTransactionCount ethGetTransactionCount = web3.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.LATEST).send();
+          EthGetTransactionCount ethGetTransactionCount = web3.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.PENDING).send();
           if(ethGetTransactionCount.hasError())
           {
             //Reject and return

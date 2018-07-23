@@ -69,7 +69,7 @@ RCT_EXPORT_MODULE();
     //Attempt to get transaction count for address
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     JsonRpcProvider *provider = [[JsonRpcProvider alloc] initWithChainId: ChainIdAny url: [NSURL URLWithString: _nodeUrl]];
-    [[provider getTransactionCount: address] onCompletion:^(IntegerPromise *promise)
+    [[provider getTransactionCount: address blockTag: BLOCK_TAG_PENDING] onCompletion:^(IntegerPromise *promise)
     {
         //If no errors, set transaction count
         if(!promise.error)
