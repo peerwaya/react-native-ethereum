@@ -6,6 +6,8 @@
 #import "Account.h"
 #import "Transaction.h"
 
+#define kRNEthereumWeiUnit  1000000000000000000
+
 @implementation RNEthereum
 
 RCT_EXPORT_MODULE();
@@ -27,11 +29,62 @@ RCT_EXPORT_MODULE();
 #pragma mark Super Overrides
 #pragma mark
 
-- (dispatch_queue_t) methodQueue
-{ return dispatch_get_main_queue(); }
-
 + (BOOL) requiresMainQueueSetup
 { return NO; }
+
+#pragma mark -
+#pragma mark Private Methods
+#pragma mark
+
+- (BigNumber * _Nullable) _getGasPrice
+{
+    //Declare variables
+    __block BigNumber * _Nullable gasPrice = nil;
+    
+    //Attempt to get the gas price
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    JsonRpcProvider *provider = [[JsonRpcProvider alloc] initWithChainId: ChainIdAny url: [NSURL URLWithString: _nodeUrl]];
+    [[provider getGasPrice] onCompletion:^(BigNumberPromise *promise)
+    {
+         //If no errors, set gas price
+         if(!promise.error)
+         { gasPrice = promise.value; }
+        
+        //Signal that get gas price is finished
+        dispatch_semaphore_signal(sema);
+    }];
+    
+    //Wait for get gas price to finish
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+    
+    //Return gas price
+    return gasPrice;
+}
+
+- (NSInteger) _getTransactionCountForAddress: (Address *) address
+{
+    //Declare variables
+    __block NSInteger transactionCount = -1;
+    
+    //Attempt to get transaction count for address
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    JsonRpcProvider *provider = [[JsonRpcProvider alloc] initWithChainId: ChainIdAny url: [NSURL URLWithString: _nodeUrl]];
+    [[provider getTransactionCount: address] onCompletion:^(IntegerPromise *promise)
+    {
+        //If no errors, set transaction count
+        if(!promise.error)
+        { transactionCount = promise.value; }
+        
+        //Signal that get transaction count is finished
+        dispatch_semaphore_signal(sema);
+    }];
+    
+    //Wait for get transaction count to finish
+    dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+    
+    //Return gas price
+    return transactionCount;
+}
 
 #pragma mark -
 #pragma mark Public Native Methods
@@ -144,6 +197,60 @@ RCT_REMAP_METHOD(decodeTransaction,
         NSDictionary *userInfo = @{ @"name": e.name, @"reason": e.reason };
         NSError *error = [NSError errorWithDomain: @"io.getty.rnethereum" code: 0 userInfo: userInfo];
         reject(@"Failed to decode transaction", @"Native exception thrown", error);
+    }
+}
+
+RCT_REMAP_METHOD(createTransferTransaction,
+                 fromAddress: (NSString *)fromAddress
+                 toAddress:(NSString *)toAddress
+                 amount:(NSNumber * _Nonnull)amount
+                 createTransferTransactionWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject)
+{
+    @try
+    {
+        //Attempt to get gas price
+        BigNumber *gasPrice = [self _getGasPrice];
+        if(!gasPrice)
+        {
+            //Problem getting gas price, reject and return
+            reject(@"Failed to get gas price", @"Connection error", nil);
+            return;
+        }
+        
+        //Attempt to get nonce (last transaction count)
+        NSInteger nonce = [self _getTransactionCountForAddress: [Address addressWithString: fromAddress]];
+        if(nonce < 0)
+        {
+            //Problem getting last transaction count, reject and return
+            reject(@"Failed to get last transaction count", @"Connection error", nil);
+            return;
+        }
+        
+        //Convert floating point amount to transaction value
+        NSInteger amountValue = amount.doubleValue * kRNEthereumWeiUnit;
+        
+        //Create transaction
+        Transaction *transaction = [Transaction transaction];
+        transaction.nonce = nonce;
+        transaction.gasPrice = gasPrice;
+        transaction.gasLimit = [BigNumber bigNumberWithInteger: 21000];
+        transaction.toAddress = [Address addressWithString: toAddress];
+        transaction.value = [BigNumber bigNumberWithInteger: amountValue];
+        
+        //Get hex encoded string of signed transaction
+        NSData *unsignedTransactionData = [transaction serialize];
+        NSString *encodedUnsignedTransaction = [unsignedTransactionData hexStringRepresentationUppercase: YES];
+        
+        //Return result
+        resolve(encodedUnsignedTransaction);
+    }
+    @catch(NSException *e)
+    {
+        //Exception, reject
+        NSDictionary *userInfo = @{ @"name": e.name, @"reason": e.reason };
+        NSError *error = [NSError errorWithDomain: @"io.getty.rnethereum" code: 0 userInfo: userInfo];
+        reject(@"Failed to create transfer transaction", @"Native exception thrown", error);
     }
 }
 

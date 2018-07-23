@@ -32,7 +32,10 @@ import io.github.novacrypto.bip39.Validation.*;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.Web3jFactory;
 import org.web3j.protocol.http.HttpService;
+import org.web3j.protocol.core.DefaultBlockParameterName;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
+import org.web3j.protocol.core.methods.response.EthGasPrice;
+import org.web3j.protocol.core.methods.response.EthGetTransactionCount;
 import org.web3j.crypto.ECKeyPair;
 import org.web3j.crypto.Keys;
 import org.web3j.crypto.Sign;
@@ -40,6 +43,8 @@ import org.web3j.crypto.Credentials;
 import org.web3j.crypto.RawTransaction;
 import org.web3j.crypto.TransactionDecoder;
 import org.web3j.crypto.TransactionEncoder;
+import org.web3j.utils.Convert;
+import org.web3j.utils.Numeric;
 
 import java.security.SecureRandom;
 import java.math.BigInteger;
@@ -179,6 +184,61 @@ public class RNEthereumModule extends ReactContextBaseJavaModule {
         {
           //Exception, reject
           promise.reject("Failed to decode transaction", "Native exception thrown", e);
+        }
+      }
+    }).start();
+  }
+
+  @ReactMethod
+  public void createTransferTransaction(final String fromAddress, final String toAddress, final double amount, final Promise promise)
+  {
+    new Thread(new Runnable()
+    {
+      public void run()
+      {
+        try
+        {
+          //Create web3j instance
+          Web3j web3 = Web3jFactory.build(new HttpService(_nodeUrl));
+
+          //Get gas price
+          EthGasPrice ethGasPrice = web3.ethGasPrice().send();
+          if(ethGasPrice.hasError())
+          {
+            //Reject and return
+            promise.reject("Failed to create transfer transaction", "Get gas price error", null);
+            return;
+          }
+          BigInteger gasPrice = ethGasPrice.getGasPrice();
+          BigInteger gasLimit = BigInteger.valueOf(21000L);
+
+          //Get nonce (transaction count)
+          EthGetTransactionCount ethGetTransactionCount = web3.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.LATEST).send();
+          if(ethGetTransactionCount.hasError())
+          {
+            //Reject and return
+            promise.reject("Failed to create transfer transaction", "Get transaction count error", null);
+            return;
+          }
+          BigInteger nonce = ethGetTransactionCount.getTransactionCount();
+
+          //Convert amount to transaction value and create transaction
+          BigInteger value = Convert.toWei(Double.toString(amount), Convert.Unit.ETHER).toBigInteger();
+
+          //Create transaction
+          RawTransaction transaction = RawTransaction.createEtherTransaction(nonce, gasPrice, gasLimit, toAddress, value);
+
+          //Serialize transaction and get hex encoded string
+          byte[] unsignedTransactionBytes = TransactionEncoder.encode(transaction);
+          String encodedUnsignedTransaction = StringUtils.ByteArrayToHexString(unsignedTransactionBytes).toUpperCase();
+
+          //Return result
+          promise.resolve(encodedUnsignedTransaction);
+        }
+        catch(Exception e)
+        {
+          //Exception, reject
+          promise.reject("Failed to create transfer transaction", "Native exception thrown", e);
         }
       }
     }).start();
